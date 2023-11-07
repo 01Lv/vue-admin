@@ -4,6 +4,7 @@ import com.example.demo.common.CommonResult;
 import com.example.demo.domain.req.LoginReq;
 import com.example.demo.domain.resp.MenuLevel1Resp;
 import com.example.demo.domain.resp.MenuLevel2Resp;
+import com.example.demo.domain.resp.UserResp;
 import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
 import lombok.extern.slf4j.Slf4j;
@@ -52,5 +53,30 @@ public class BaseController {
         }
         log.info("result: {}", list);
         return CommonResult.success(list);
+    }
+
+    @GetMapping("/users")
+    public CommonResult<List<UserResp>> users() {
+        List<UserResp> result = new ArrayList<>();
+
+        UserResp user1 = new UserResp();
+        user1.setId(1);
+        user1.setName("yhn");
+        user1.setRole("普通用户");
+        user1.setEmail("123@gmail.com");
+        user1.setPhone("13544223366");
+        user1.setStat(Boolean.TRUE);
+        result.add(user1);
+
+        UserResp user2 = new UserResp();
+        user2.setId(2);
+        user2.setName("tgb");
+        user2.setRole("管理员");
+        user2.setEmail("456@gmail.com");
+        user2.setPhone("18955662233");
+        user2.setStat(Boolean.FALSE);
+        result.add(user2);
+
+        return CommonResult.success(result, Long.valueOf(result.size()));
     }
 }
