@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.demo.common.CommonResult;
 import com.example.demo.domain.entity.User;
+import com.example.demo.domain.req.AddUserReq;
+import com.example.demo.domain.req.EditUserReq;
 import com.example.demo.domain.req.LoginReq;
 import com.example.demo.domain.req.UserPageReq;
 import com.example.demo.domain.resp.MenuLevel1Resp;
@@ -76,6 +78,15 @@ public class BaseController {
         return CommonResult.success(userResps, (long) userResps.size());
     }
 
+    @PostMapping("/addUser")
+    public CommonResult<Integer> addUser(@RequestBody AddUserReq req) {
+        User user = UserConvert.INSTANCE.convert2Entity(req);
+        user.setRole(2);
+        user.setStat(Boolean.FALSE);
+        userService.saveOrUpdate(user);
+        return CommonResult.success(user.getId());
+    }
+
     @PutMapping("/userStateUpdate/{id}/{stat}")
     public CommonResult<Boolean> userStateUpdate(@PathVariable("id") String id,
                                                  @PathVariable("stat") Boolean stat) {
@@ -83,6 +94,19 @@ public class BaseController {
         User user = userService.getById(id);
         user.setStat(stat);
         userService.saveOrUpdate(user);
+        return CommonResult.success(Boolean.TRUE);
+    }
+
+    @GetMapping("/user/{id}")
+    public CommonResult<User> getUser(@PathVariable("id") Integer id) {
+        User user = userService.getById(id);
+        return CommonResult.success(user);
+    }
+
+    @PutMapping("/editUser")
+    public CommonResult<Boolean> editUser(@RequestBody EditUserReq req) {
+        User user = UserConvert.INSTANCE.convert2Entity(req);
+        userService.updateById(user);
         return CommonResult.success(Boolean.TRUE);
     }
 }
