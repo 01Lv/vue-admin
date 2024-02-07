@@ -109,4 +109,10 @@ public class BaseController {
         userService.updateById(user);
         return CommonResult.success(Boolean.TRUE);
     }
+
+    @DeleteMapping("/delete/{id}")
+    public CommonResult<Boolean> deleteUser(@PathVariable("id") Integer id) {
+        userService.removeById(id);
+        return CommonResult.success(Boolean.TRUE);
+    }
 }
