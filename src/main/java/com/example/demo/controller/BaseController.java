@@ -10,10 +10,13 @@ import com.example.demo.domain.req.LoginReq;
 import com.example.demo.domain.req.UserPageReq;
 import com.example.demo.domain.resp.MenuLevel1Resp;
 import com.example.demo.domain.resp.MenuLevel2Resp;
+import com.example.demo.domain.resp.RightResp;
 import com.example.demo.domain.resp.UserResp;
 import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
+import com.example.demo.enums.RightEnum;
 import com.example.demo.service.UserService;
+import com.example.demo.service.convert.RightConvert;
 import com.example.demo.service.convert.UserConvert;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,5 +117,11 @@ public class BaseController {
     public CommonResult<Boolean> deleteUser(@PathVariable("id") Integer id) {
         userService.removeById(id);
         return CommonResult.success(Boolean.TRUE);
+    }
+
+    @GetMapping("/rights")
+    public CommonResult<List<RightResp>> rights() {
+        List<RightResp> result = RightConvert.INSTANCE.convert2RespList(RightEnum.values());
+        return CommonResult.success(result);
     }
 }
