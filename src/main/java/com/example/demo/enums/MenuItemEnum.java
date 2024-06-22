@@ -13,7 +13,7 @@ public enum MenuItemEnum {
 
     MERCHANT_1(11,"商户管理子11","/merchant11",1),
     MERCHANT_2(12,"商户管理子12","/merchant12",1),
-    RIGHT_1(21,"角色列表","/role",3),
+    RIGHT_1(21,"角色列表","/roles",3),
     RIGHT_2(22,"权限列表","/rights",3),
     COMMODITY_1(41,"商品管理子41","/commodity41",4),
     COMMODITY_2(42,"商品管理子42","/commodity42",4),;

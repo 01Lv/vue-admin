@@ -8,15 +8,13 @@ import com.example.demo.domain.req.AddUserReq;
 import com.example.demo.domain.req.EditUserReq;
 import com.example.demo.domain.req.LoginReq;
 import com.example.demo.domain.req.UserPageReq;
-import com.example.demo.domain.resp.MenuLevel1Resp;
-import com.example.demo.domain.resp.MenuLevel2Resp;
-import com.example.demo.domain.resp.RightResp;
-import com.example.demo.domain.resp.UserResp;
+import com.example.demo.domain.resp.*;
 import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
 import com.example.demo.enums.RightEnum;
+import com.example.demo.enums.RoleEnum;
 import com.example.demo.service.UserService;
-import com.example.demo.service.convert.RightConvert;
+import com.example.demo.service.convert.DemoConvert;
 import com.example.demo.service.convert.UserConvert;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,7 +119,13 @@ public class BaseController {
 
     @GetMapping("/rights")
     public CommonResult<List<RightResp>> rights() {
-        List<RightResp> result = RightConvert.INSTANCE.convert2RespList(RightEnum.values());
+        List<RightResp> result = DemoConvert.INSTANCE.convert2RespList(RightEnum.values());
+        return CommonResult.success(result);
+    }
+
+    @GetMapping("/roleList")
+    public CommonResult<List<RoleResp>> roleList() {
+        List<RoleResp> result = DemoConvert.INSTANCE.convert2RoleList(RoleEnum.values());
         return CommonResult.success(result);
     }
 }

@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class RightResp {
 
-    private String authName;
+    private String name;
     private Integer level;
     private Integer id;
     private String path;
