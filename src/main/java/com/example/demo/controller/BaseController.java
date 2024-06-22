@@ -3,6 +3,9 @@ package com.example.demo.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.demo.common.CommonResult;
+import com.example.demo.domain.entity.Right;
+import com.example.demo.domain.entity.Role;
+import com.example.demo.domain.entity.RoleRightRelate;
 import com.example.demo.domain.entity.User;
 import com.example.demo.domain.req.AddUserReq;
 import com.example.demo.domain.req.EditUserReq;
@@ -13,17 +16,23 @@ import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
 import com.example.demo.enums.RightEnum;
 import com.example.demo.enums.RoleEnum;
+import com.example.demo.service.RightService;
+import com.example.demo.service.RoleRightRelateService;
+import com.example.demo.service.RoleService;
 import com.example.demo.service.UserService;
 import com.example.demo.service.convert.DemoConvert;
 import com.example.demo.service.convert.UserConvert;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/base")
@@ -33,6 +42,15 @@ public class BaseController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private RoleService roleService;
+
+    @Autowired
+    private RightService rightService;
+
+    @Autowired
+    private RoleRightRelateService roleRightRelateService;
 
     @PostMapping("/login")
     public CommonResult<String> login(@RequestBody LoginReq req){
@@ -125,7 +143,33 @@ public class BaseController {
 
     @GetMapping("/roleList")
     public CommonResult<List<RoleResp>> roleList() {
-        List<RoleResp> result = DemoConvert.INSTANCE.convert2RoleList(RoleEnum.values());
+        List<Role> list = roleService.list();
+        List<Integer> roleIdList = list.stream().map(Role::getId).collect(Collectors.toList());
+        Map<Integer, List<Integer>> map = roleRightRelateService.list(new LambdaQueryWrapper<RoleRightRelate>()
+                        .in(RoleRightRelate::getRoleId, roleIdList)).stream()
+                .collect(Collectors.groupingBy(RoleRightRelate::getRoleId,Collectors.mapping(RoleRightRelate::getRightId,Collectors.toList())));
+        List<RoleResp> result = new ArrayList<>();
+        for (Role role : list) {
+            RoleResp resp = new RoleResp();
+            resp.setId(role.getId());
+            resp.setRoleName(role.getRoleName());
+            resp.setDesc(role.getRemark());
+
+            List<Integer> rightIds = map.get(role.getId());
+            if (!CollectionUtils.isEmpty(rightIds)) {
+                List<Right> rights = rightService.list(new LambdaQueryWrapper<Right>()
+                        .in(Right::getId, rightIds));
+                List<RoleResp.RightDto> list1 = new ArrayList<>();
+                for (Right right : rights) {
+                    RoleResp.RightDto dto = new RoleResp.RightDto();
+                    dto.setId(right.getId());
+                    dto.setDesc(right.getRemark());
+                    list1.add(dto);
+                }
+                resp.setRights(list1);
+            }
+            result.add(resp);
+        }
         return CommonResult.success(result);
     }
 }

@@ -14,4 +14,9 @@ public enum RoleEnum {
     private final String roleName;
     private final String desc;
     private final String rights;
+
+    public static class RightDto{
+        private String id;
+        private String desc;
+    }
 }
