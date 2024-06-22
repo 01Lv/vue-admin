@@ -172,4 +172,15 @@ public class BaseController {
         }
         return CommonResult.success(result);
     }
+
+    @DeleteMapping("/roles/{roleId}/{rightId}")
+    public CommonResult<Boolean> deleteRole(@PathVariable("roleId") Integer roleId,
+                                            @PathVariable("rightId") Integer rightId) {
+
+        boolean remove = roleRightRelateService.remove(new LambdaQueryWrapper<RoleRightRelate>()
+                .eq(RoleRightRelate::getRoleId, roleId)
+                .eq(RoleRightRelate::getRightId, rightId));
+        log.info("删除角色权限结果 {}", remove);
+        return CommonResult.success(remove);
+    }
 }
