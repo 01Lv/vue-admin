@@ -15,8 +15,9 @@ public enum MenuItemEnum {
     MERCHANT_2(12,"商户管理子12","/merchant12",1),
     RIGHT_1(21,"角色列表","/roles",3),
     RIGHT_2(22,"权限列表","/rights",3),
-    COMMODITY_1(41,"商品管理子41","/commodity41",4),
-    COMMODITY_2(42,"商品管理子42","/commodity42",4),;
+    COMMODITY_1(41,"商品列表","/commodity41",4),
+    COMMODITY_2(42,"分类参数","/commodity42",4),
+    COMMODITY_3(43,"商品分类","/category",4),;
 
     private final Integer id;
     private final String name;
