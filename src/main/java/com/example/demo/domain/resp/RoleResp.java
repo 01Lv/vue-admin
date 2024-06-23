@@ -1,5 +1,6 @@
 package com.example.demo.domain.resp;
 
+import com.example.demo.domain.RightDto;
 import lombok.Data;
 
 import java.util.List;
@@ -11,10 +12,4 @@ public class RoleResp {
     private String roleName;
     private String desc;
     private List<RightDto> rights;
-
-    @Data
-    public static class RightDto{
-        private Integer id;
-        private String desc;
-    }
 }

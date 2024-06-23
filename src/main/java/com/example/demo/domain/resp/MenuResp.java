@@ -3,7 +3,7 @@ package com.example.demo.domain.resp;
 import lombok.Data;
 
 @Data
-public class RightResp {
+public class MenuResp {
 
     private String name;
     private Integer level;

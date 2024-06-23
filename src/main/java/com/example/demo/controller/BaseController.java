@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.demo.common.CommonResult;
+import com.example.demo.domain.RightDto;
 import com.example.demo.domain.entity.Right;
 import com.example.demo.domain.entity.Role;
 import com.example.demo.domain.entity.RoleRightRelate;
@@ -15,7 +16,6 @@ import com.example.demo.domain.resp.*;
 import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
 import com.example.demo.enums.RightEnum;
-import com.example.demo.enums.RoleEnum;
 import com.example.demo.service.RightService;
 import com.example.demo.service.RoleRightRelateService;
 import com.example.demo.service.RoleService;
@@ -135,9 +135,9 @@ public class BaseController {
         return CommonResult.success(Boolean.TRUE);
     }
 
-    @GetMapping("/rights")
-    public CommonResult<List<RightResp>> rights() {
-        List<RightResp> result = DemoConvert.INSTANCE.convert2RespList(RightEnum.values());
+    @GetMapping("/menus2")
+    public CommonResult<List<MenuResp>> menus() {
+        List<MenuResp> result = DemoConvert.INSTANCE.convert2RespList(RightEnum.values());
         return CommonResult.success(result);
     }
 
@@ -159,9 +159,9 @@ public class BaseController {
             if (!CollectionUtils.isEmpty(rightIds)) {
                 List<Right> rights = rightService.list(new LambdaQueryWrapper<Right>()
                         .in(Right::getId, rightIds));
-                List<RoleResp.RightDto> list1 = new ArrayList<>();
+                List<RightDto> list1 = new ArrayList<>();
                 for (Right right : rights) {
-                    RoleResp.RightDto dto = new RoleResp.RightDto();
+                    RightDto dto = new RightDto();
                     dto.setId(right.getId());
                     dto.setDesc(right.getRemark());
                     list1.add(dto);
@@ -182,5 +182,31 @@ public class BaseController {
                 .eq(RoleRightRelate::getRightId, rightId));
         log.info("删除角色权限结果 {}", remove);
         return CommonResult.success(remove);
+    }
+
+    @GetMapping("/rights")
+    public CommonResult<List<RightDto>> rights() {
+        List<RightDto> list = rightService.list().stream().map(e -> {
+            RightDto dto = new RightDto();
+            dto.setId(e.getId());
+            dto.setDesc(e.getRemark());
+            return dto;
+        }).collect(Collectors.toList());
+        return CommonResult.success(list);
+    }
+
+    @PostMapping("/updateRole/{roleId}")
+    public CommonResult<Boolean> updateRole(@PathVariable("roleId") Integer roleId,
+                                            @RequestBody List<Integer> list) {
+        roleRightRelateService.remove(new LambdaQueryWrapper<RoleRightRelate>()
+                .eq(RoleRightRelate::getRoleId, roleId));
+        List<RoleRightRelate> collect = list.stream().map(e -> {
+            RoleRightRelate relate = new RoleRightRelate();
+            relate.setRoleId(roleId);
+            relate.setRightId(e);
+            return relate;
+        }).collect(Collectors.toList());
+        roleRightRelateService.saveOrUpdateBatch(collect);
+        return CommonResult.success(Boolean.TRUE);
     }
 }
