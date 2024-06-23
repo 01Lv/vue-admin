@@ -4,10 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.demo.common.CommonResult;
 import com.example.demo.domain.RightDto;
-import com.example.demo.domain.entity.Right;
-import com.example.demo.domain.entity.Role;
-import com.example.demo.domain.entity.RoleRightRelate;
-import com.example.demo.domain.entity.User;
+import com.example.demo.domain.RoleDto;
+import com.example.demo.domain.entity.*;
 import com.example.demo.domain.req.AddUserReq;
 import com.example.demo.domain.req.EditUserReq;
 import com.example.demo.domain.req.LoginReq;
@@ -16,10 +14,7 @@ import com.example.demo.domain.resp.*;
 import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
 import com.example.demo.enums.RightEnum;
-import com.example.demo.service.RightService;
-import com.example.demo.service.RoleRightRelateService;
-import com.example.demo.service.RoleService;
-import com.example.demo.service.UserService;
+import com.example.demo.service.*;
 import com.example.demo.service.convert.DemoConvert;
 import com.example.demo.service.convert.UserConvert;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +46,9 @@ public class BaseController {
 
     @Autowired
     private RoleRightRelateService roleRightRelateService;
+
+    @Autowired
+    private UserRoleRelateService userRoleRelateService;
 
     @PostMapping("/login")
     public CommonResult<String> login(@RequestBody LoginReq req){
@@ -94,6 +92,15 @@ public class BaseController {
         query.like(StringUtils.hasText(req.getQuery()), User::getName, req.getQuery());
         Page<User> page = userService.page(new Page<>(req.getPageNum(), req.getPageSize()), query);
         List<UserResp> userResps = UserConvert.INSTANCE.convertToList(page.getRecords());
+        List<Integer> userIds = userResps.stream().map(UserResp::getId).collect(Collectors.toList());
+        Map<Integer, Integer> map = userRoleRelateService.list(new LambdaQueryWrapper<UserRoleRelate>()
+                .in(UserRoleRelate::getUserId, userIds)).stream().collect(Collectors.toMap(UserRoleRelate::getUserId, UserRoleRelate::getRoleId));
+        Map<Integer, String> roleMap = roleService.list().stream().collect(Collectors.toMap(Role::getId, Role::getRoleName));
+        for (UserResp each : userResps) {
+            Integer roleId = map.get(each.getId());
+            each.setRoleId(roleId);
+            each.setRoleDesc(roleMap.get(roleId));
+        }
         return CommonResult.success(userResps, (long) userResps.size());
     }
 
@@ -195,8 +202,19 @@ public class BaseController {
         return CommonResult.success(list);
     }
 
-    @PostMapping("/updateRole/{roleId}")
-    public CommonResult<Boolean> updateRole(@PathVariable("roleId") Integer roleId,
+    @GetMapping("/roles")
+    public CommonResult<List<RoleDto>> roles() {
+        List<RoleDto> list = roleService.list().stream().map(e -> {
+            RoleDto dto = new RoleDto();
+            dto.setId(e.getId());
+            dto.setRoleName(e.getRoleName());
+            return dto;
+        }).collect(Collectors.toList());
+        return CommonResult.success(list);
+    }
+
+    @PostMapping("/updateRight/{roleId}")
+    public CommonResult<Boolean> updateRight(@PathVariable("roleId") Integer roleId,
                                             @RequestBody List<Integer> list) {
         roleRightRelateService.remove(new LambdaQueryWrapper<RoleRightRelate>()
                 .eq(RoleRightRelate::getRoleId, roleId));
@@ -207,6 +225,21 @@ public class BaseController {
             return relate;
         }).collect(Collectors.toList());
         roleRightRelateService.saveOrUpdateBatch(collect);
+        return CommonResult.success(Boolean.TRUE);
+    }
+
+    @PostMapping("/updateRole/{userId}")
+    public CommonResult<Boolean> updateRole(@PathVariable("userId") Integer userId,
+                                             @RequestBody List<Integer> list) {
+        userRoleRelateService.remove(new LambdaQueryWrapper<UserRoleRelate>()
+                .eq(UserRoleRelate::getUserId, userId));
+        List<UserRoleRelate> collect = list.stream().map(e -> {
+            UserRoleRelate relate = new UserRoleRelate();
+            relate.setUserId(userId);
+            relate.setRoleId(e);
+            return relate;
+        }).collect(Collectors.toList());
+        userRoleRelateService.saveOrUpdateBatch(collect);
         return CommonResult.success(Boolean.TRUE);
     }
 }

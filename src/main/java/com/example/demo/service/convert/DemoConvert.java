@@ -1,9 +1,7 @@
 package com.example.demo.service.convert;
 
 import com.example.demo.domain.resp.MenuResp;
-import com.example.demo.domain.resp.RoleResp;
 import com.example.demo.enums.RightEnum;
-import com.example.demo.enums.RoleEnum;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 

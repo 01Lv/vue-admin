@@ -15,6 +15,7 @@ public interface UserConvert {
 
     UserConvert INSTANCE = Mappers.getMapper(UserConvert.class);
 
+    @Mapping(target = "roleDesc",ignore = true)
     List<UserResp> convertToList(List<User> list);
 
     @Mapping(target = "name",source = "username")
