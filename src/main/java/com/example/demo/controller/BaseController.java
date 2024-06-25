@@ -6,10 +6,7 @@ import com.example.demo.common.CommonResult;
 import com.example.demo.domain.RightDto;
 import com.example.demo.domain.RoleDto;
 import com.example.demo.domain.entity.*;
-import com.example.demo.domain.req.AddUserReq;
-import com.example.demo.domain.req.EditUserReq;
-import com.example.demo.domain.req.LoginReq;
-import com.example.demo.domain.req.UserPageReq;
+import com.example.demo.domain.req.*;
 import com.example.demo.domain.resp.*;
 import com.example.demo.enums.MenuEnum;
 import com.example.demo.enums.MenuItemEnum;
@@ -87,7 +84,6 @@ public class BaseController {
 
     @PostMapping("/users")
     public CommonResult<List<UserResp>> users(@RequestBody UserPageReq req) {
-
         LambdaQueryWrapper<User> query = new LambdaQueryWrapper<>();
         query.like(StringUtils.hasText(req.getQuery()), User::getName, req.getQuery());
         Page<User> page = userService.page(new Page<>(req.getPageNum(), req.getPageSize()), query);
@@ -211,6 +207,12 @@ public class BaseController {
             return dto;
         }).collect(Collectors.toList());
         return CommonResult.success(list);
+    }
+
+    @GetMapping("/categoryList")
+    public CommonResult<List<RoleDto>> getCategoryList(CategoryPageReq req) {
+
+        return CommonResult.success(null);
     }
 
     @PostMapping("/updateRight/{roleId}")
