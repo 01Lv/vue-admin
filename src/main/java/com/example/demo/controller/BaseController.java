@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.demo.common.CommonResult;
 import com.example.demo.domain.LoginUserDto;
@@ -238,7 +239,8 @@ public class BaseController {
         LambdaQueryWrapper<LoginUser> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(StringUtils.hasText(req.getLoginCity()), LoginUser::getLoginCity, req.getLoginCity())
                 .eq(StringUtils.hasText(req.getLoginIp()), LoginUser::getLoginIp, req.getLoginIp())
-                .eq(Objects.nonNull(req.getActived()), LoginUser::getActived, req.getActived());
+                .eq(Objects.nonNull(req.getActived()), LoginUser::getActived, req.getActived())
+                .orderByDesc(LoginUser::getCreateDate);
         Page<LoginUser> page = loginUserService.page(new Page<>(req.getPageNum(), req.getPageSize()), queryWrapper);
         List<LoginUser> records = page.getRecords();
         List<LoginUserDto> result = records.stream().map(e -> {
@@ -277,6 +279,14 @@ public class BaseController {
             return relate;
         }).collect(Collectors.toList());
         userRoleRelateService.saveOrUpdateBatch(collect);
+        return CommonResult.success(Boolean.TRUE);
+    }
+
+    @PutMapping("/offline/{id}")
+    public CommonResult<Boolean> offline(@PathVariable("id") Integer id) {
+        loginUserService.update(new LambdaUpdateWrapper<LoginUser>()
+                .set(LoginUser::getActived, 0)
+                .eq(LoginUser::getId, id));
         return CommonResult.success(Boolean.TRUE);
     }
 }
