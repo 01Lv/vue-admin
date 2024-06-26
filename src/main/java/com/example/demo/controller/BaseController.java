@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.demo.common.CommonResult;
+import com.example.demo.domain.LoginUserDto;
 import com.example.demo.domain.RightDto;
 import com.example.demo.domain.RoleDto;
 import com.example.demo.domain.entity.*;
@@ -14,16 +15,17 @@ import com.example.demo.enums.RightEnum;
 import com.example.demo.service.*;
 import com.example.demo.service.convert.DemoConvert;
 import com.example.demo.service.convert.UserConvert;
+import com.example.demo.utils.NetworkUtils;
 import lombok.extern.slf4j.Slf4j;
+import net.dreamlu.mica.ip2region.core.Ip2regionSearcher;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import javax.servlet.http.HttpServletRequest;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -42,14 +44,29 @@ public class BaseController {
     private RightService rightService;
 
     @Autowired
+    private LoginUserService loginUserService;
+
+    @Autowired
     private RoleRightRelateService roleRightRelateService;
 
     @Autowired
     private UserRoleRelateService userRoleRelateService;
 
+    @Autowired
+    private Ip2regionSearcher ip2regionSearcher;
+
     @PostMapping("/login")
-    public CommonResult<String> login(@RequestBody LoginReq req){
+    public CommonResult<String> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req){
         if("admin".equals(req.getUsername()) && "admin".equals(req.getPassword())){
+            String ip = NetworkUtils.getIpAddress(httpServletRequest);
+            String address = ip2regionSearcher.getAddress(ip);
+            LoginUser loginUser = new LoginUser();
+            loginUser.setLoginIp(ip);
+            loginUser.setUserId(req.getUsername());
+            loginUser.setLoginCity(address);
+            loginUser.setActived(1);
+            loginUser.setCreateDate(new Date());
+            loginUserService.saveOrUpdate(loginUser);
             return CommonResult.success(UUID.randomUUID().toString());
         }else {
             return CommonResult.failed();
@@ -213,6 +230,24 @@ public class BaseController {
     public CommonResult<List<RoleDto>> getCategoryList(CategoryPageReq req) {
 
         return CommonResult.success(null);
+    }
+
+    @PostMapping("/getOnlineUserList")
+    public CommonResult<List<LoginUserDto>> getOnlineUserList(@RequestBody LoginUserReq req) {
+
+        LambdaQueryWrapper<LoginUser> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(StringUtils.hasText(req.getLoginCity()), LoginUser::getLoginCity, req.getLoginCity())
+                .eq(StringUtils.hasText(req.getLoginIp()), LoginUser::getLoginIp, req.getLoginIp())
+                .eq(Objects.nonNull(req.getActived()), LoginUser::getActived, req.getActived());
+        Page<LoginUser> page = loginUserService.page(new Page<>(req.getPageNum(), req.getPageSize()), queryWrapper);
+        List<LoginUser> records = page.getRecords();
+        List<LoginUserDto> result = records.stream().map(e -> {
+            LoginUserDto dto = new LoginUserDto();
+            BeanUtils.copyProperties(e, dto);
+            return dto;
+        }).collect(Collectors.toList());
+
+        return CommonResult.success(result, page.getTotal());
     }
 
     @PostMapping("/updateRight/{roleId}")
