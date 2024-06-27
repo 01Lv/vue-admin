@@ -289,4 +289,12 @@ public class BaseController {
                 .eq(LoginUser::getId, id));
         return CommonResult.success(Boolean.TRUE);
     }
+
+    @PostMapping("/batchOffline")
+    public CommonResult<Boolean> batchOffline(@RequestBody List<Integer> list){
+        loginUserService.update(new LambdaUpdateWrapper<LoginUser>()
+                .set(LoginUser::getActived, 0)
+                .in(LoginUser::getId, list));
+        return CommonResult.success(Boolean.TRUE);
+    }
 }
