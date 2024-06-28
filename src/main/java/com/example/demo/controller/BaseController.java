@@ -307,4 +307,10 @@ public class BaseController {
         roleService.saveOrUpdate(role);
         return CommonResult.success(Boolean.TRUE);
     }
+
+    @PutMapping("/deleteRole/{id}")
+    public CommonResult<Boolean> deleteRole(@PathVariable("id") Integer id) {
+        roleService.removeById(id);
+        return CommonResult.success(Boolean.TRUE);
+    }
 }
