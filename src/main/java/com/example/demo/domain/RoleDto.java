@@ -7,4 +7,5 @@ public class RoleDto {
 
     private Integer id;
     private String roleName;
+    private String remark;
 }

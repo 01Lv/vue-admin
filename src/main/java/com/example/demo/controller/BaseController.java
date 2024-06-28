@@ -297,4 +297,14 @@ public class BaseController {
                 .in(LoginUser::getId, list));
         return CommonResult.success(Boolean.TRUE);
     }
+
+    @PostMapping("/addRole")
+    public CommonResult<Boolean> addRole(@RequestBody RoleDto req){
+
+        Role role = new Role();
+        role.setRoleName(req.getRoleName());
+        role.setRemark(req.getRemark());
+        roleService.saveOrUpdate(role);
+        return CommonResult.success(Boolean.TRUE);
+    }
 }
