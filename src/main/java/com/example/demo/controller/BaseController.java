@@ -57,7 +57,7 @@ public class BaseController {
     private Ip2regionSearcher ip2regionSearcher;
 
     @PostMapping("/login")
-    public CommonResult<String> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req){
+    public CommonResult<LoginUser> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req){
         if("admin".equals(req.getUsername()) && "admin".equals(req.getPassword())){
             String ip = NetworkUtils.getIpAddress(httpServletRequest);
             String address = ip2regionSearcher.getAddress(ip);
@@ -68,7 +68,7 @@ public class BaseController {
             loginUser.setActived(1);
             loginUser.setCreateDate(new Date());
             loginUserService.saveOrUpdate(loginUser);
-            return CommonResult.success(UUID.randomUUID().toString());
+            return CommonResult.success(loginUser);
         }else {
             return CommonResult.failed();
         }
