@@ -56,6 +56,15 @@ public class BaseController {
     @Autowired
     private Ip2regionSearcher ip2regionSearcher;
 
+    @Autowired
+    private ReleaseEnvRecordService releaseEnvRecordService;
+
+    @Autowired
+    private ReleaseBranchRecordService releaseBranchRecordService;
+
+    @Autowired
+    private ReleaseProjectService releaseProjectService;
+
     @PostMapping("/login")
     public CommonResult<LoginUser> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req){
         if("admin".equals(req.getUsername()) && "admin".equals(req.getPassword())){
@@ -312,5 +321,27 @@ public class BaseController {
     public CommonResult<Boolean> deleteRole(@PathVariable("id") Integer id) {
         roleService.removeById(id);
         return CommonResult.success(Boolean.TRUE);
+    }
+
+    @GetMapping("/release/{id}")
+    public CommonResult<GetPublishContentResp> getPublishContent(@PathVariable("id") Integer id) {
+
+        GetPublishContentResp resp = new GetPublishContentResp();
+
+        ReleaseProject releaseProject = releaseProjectService.getById(id);
+        resp.setProjectId(releaseProject.getProjectId());
+        resp.setProjectName(releaseProject.getProjectName());
+        resp.setPrdBranch(releaseProject.getPrdBranch());
+        resp.setCodeRepo("http://localhost:30000");
+
+        List<ReleaseEnvRecord> list = releaseEnvRecordService.list(new LambdaQueryWrapper<ReleaseEnvRecord>()
+                .eq(ReleaseEnvRecord::getProjectId, id));
+        List<GetPublishContentResp.EnvContent> collect = list.stream().map(e -> {
+            GetPublishContentResp.EnvContent envContent = new GetPublishContentResp.EnvContent();
+            BeanUtils.copyProperties(e, envContent);
+            return envContent;
+        }).collect(Collectors.toList());
+        resp.setEnvContents(collect);
+        return CommonResult.success(resp);
     }
 }
