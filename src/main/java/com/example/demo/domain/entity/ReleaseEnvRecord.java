@@ -58,6 +58,10 @@ public class ReleaseEnvRecord {
     @TableField(value = "release_mirror")
     private String releaseMirror;
 
+    @ApiModelProperty(value = "创建人")
+    @TableField(value = "created_by")
+    private String createdBy;
+
     @ApiModelProperty(value = "创建时间")
     @TableField(value = "created_date")
     private Date createdDate;

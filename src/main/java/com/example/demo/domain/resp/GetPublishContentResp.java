@@ -1,7 +1,10 @@
 package com.example.demo.domain.resp;
 
 import cn.hutool.core.date.DatePattern;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.example.demo.domain.entity.ReleaseBranchRecord;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import java.util.Date;
@@ -30,11 +33,15 @@ public class GetPublishContentResp {
         private String lastModifiedBy;
         @JsonFormat(pattern = DatePattern.NORM_DATETIME_PATTERN,timezone = "GMT+8")
         private Date lastModifiedDate;
-        private List<CardContent> cardContentList;
+        private List<ReleaseBranchRecord> cardContentList;
     }
 
     @Data
     public static class CardContent{
+
+        private String envId;
+        private String envName;
+        private Integer projectId;
         private Integer branchId;
         private String branchName;
         private Integer branchReleaseStatus;

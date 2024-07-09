@@ -336,9 +336,12 @@ public class BaseController {
 
         List<ReleaseEnvRecord> list = releaseEnvRecordService.list(new LambdaQueryWrapper<ReleaseEnvRecord>()
                 .eq(ReleaseEnvRecord::getProjectId, id));
+        Map<String, List<ReleaseBranchRecord>> map = releaseBranchRecordService.list(new LambdaQueryWrapper<ReleaseBranchRecord>()
+                .eq(ReleaseBranchRecord::getProjectId, id)).stream().collect(Collectors.groupingBy(ReleaseBranchRecord::getEnvId));
         List<GetPublishContentResp.EnvContent> collect = list.stream().map(e -> {
             GetPublishContentResp.EnvContent envContent = new GetPublishContentResp.EnvContent();
             BeanUtils.copyProperties(e, envContent);
+            envContent.setCardContentList(map.get(e.getEnvId()));
             return envContent;
         }).collect(Collectors.toList());
         resp.setEnvContents(collect);
