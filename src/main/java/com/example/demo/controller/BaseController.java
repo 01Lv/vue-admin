@@ -19,6 +19,14 @@ import com.example.demo.service.convert.UserConvert;
 import com.example.demo.utils.NetworkUtils;
 import lombok.extern.slf4j.Slf4j;
 import net.dreamlu.mica.ip2region.core.Ip2regionSearcher;
+import org.gitlab.api.GitlabAPI;
+import org.gitlab.api.Pagination;
+import org.gitlab.api.models.GitlabBranch;
+import org.gitlab.api.models.GitlabCommit;
+import org.gitlab.api.models.GitlabMergeRequest;
+import org.gitlab.api.models.GitlabProject;
+import org.gitlab.api.query.PaginationQuery;
+import org.gitlab4j.api.GitLabApi;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
@@ -64,6 +72,15 @@ public class BaseController {
 
     @Autowired
     private ReleaseProjectService releaseProjectService;
+
+    @Autowired
+    private ReleaseCommitService releaseCommitService;
+
+    @Autowired
+    private ReleaseBranchService releaseBranchService;
+
+    @Autowired
+    private ReleaseMergedService releaseMergedService;
 
     @PostMapping("/login")
     public CommonResult<LoginUser> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req){
@@ -329,22 +346,112 @@ public class BaseController {
         GetPublishContentResp resp = new GetPublishContentResp();
 
         ReleaseProject releaseProject = releaseProjectService.getById(id);
-        resp.setProjectId(releaseProject.getProjectId());
-        resp.setProjectName(releaseProject.getProjectName());
-        resp.setPrdBranch(releaseProject.getPrdBranch());
-        resp.setCodeRepo("http://localhost:30000");
+        resp.setProjectId(releaseProject.getId());
+        resp.setProjectName(releaseProject.getName());
+        resp.setPrdBranch(releaseProject.getDefaultBranch());
+        resp.setCodeRepo(releaseProject.getWebUrl());
 
-        List<ReleaseEnvRecord> list = releaseEnvRecordService.list(new LambdaQueryWrapper<ReleaseEnvRecord>()
-                .eq(ReleaseEnvRecord::getProjectId, id));
-        Map<String, List<ReleaseBranchRecord>> map = releaseBranchRecordService.list(new LambdaQueryWrapper<ReleaseBranchRecord>()
-                .eq(ReleaseBranchRecord::getProjectId, id)).stream().collect(Collectors.groupingBy(ReleaseBranchRecord::getEnvId));
-        List<GetPublishContentResp.EnvContent> collect = list.stream().map(e -> {
-            GetPublishContentResp.EnvContent envContent = new GetPublishContentResp.EnvContent();
-            BeanUtils.copyProperties(e, envContent);
-            envContent.setCardContentList(map.get(e.getEnvId()));
-            return envContent;
-        }).collect(Collectors.toList());
-        resp.setEnvContents(collect);
         return CommonResult.success(resp);
+    }
+
+    @GetMapping("/getGitlabApi")
+    public void getGitlabApi() throws Exception{
+        GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        log.info("branches: {}");
+    }
+
+    @GetMapping("/getBranches")
+    public CommonResult<List<ReleaseBranch>> getBranches() throws Exception{
+        List<ReleaseBranch> list = releaseBranchService.list();
+        return CommonResult.success(list);
+    }
+
+    @GetMapping("/updateProject")
+    public void updateProject() throws Exception{
+        GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        List<GitlabProject> projects = connect.getProjects();
+        projects = projects.stream()
+                .filter(e->Objects.nonNull(e.getNamespace()) && e.getNamespace().getPath().equals("sms-server"))
+                .filter(e->Objects.nonNull(e.getNamespace()) && e.getNamespace().getPath().equals("sparepart"))
+                .collect(Collectors.toList());
+        List<ReleaseProject> releaseProjects = new ArrayList<>();
+        for (GitlabProject project : projects) {
+            ReleaseProject releaseProject = new ReleaseProject();
+            releaseProject.setId(project.getId());
+            releaseProject.setName(project.getName());
+            releaseProject.setDefaultBranch(project.getDefaultBranch());
+            releaseProject.setWebUrl(project.getWebUrl());
+            releaseProject.setHttpUrl(project.getHttpUrl());
+            releaseProject.setCreatedAt(project.getCreatedAt());
+            releaseProject.setLastActivityAt(project.getLastActivityAt());
+            releaseProject.setNamespaceId(project.getNamespace().getId());
+            releaseProject.setNamespaceName(project.getNamespace().getName());
+            releaseProject.setNamespacePath(project.getNamespace().getPath());
+            releaseProject.setNamespaceParentId(project.getNamespace().getParentId());
+
+            releaseProjects.add(releaseProject);
+        }
+        releaseProjectService.getBaseMapper().delete();
+        releaseProjectService.saveOrUpdateBatch(releaseProjects);
+    }
+
+    public void getBranches(Integer projectId) throws Exception{
+        GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        List<GitlabBranch> branches = connect.getBranches(projectId);
+        List<ReleaseBranch> releaseBranches = new ArrayList<>();
+        for (GitlabBranch branch : branches) {
+            ReleaseBranch releaseBranch = new ReleaseBranch();
+            releaseBranch.setId(branch.getCommit().getId());
+            releaseBranch.setProjectId(projectId);
+            releaseBranch.setName(branch.getName());
+            releaseBranch.setMessage(branch.getCommit().getMessage());
+            releaseBranch.setCommittedDate(branch.getCommit().getCommittedDate());
+            releaseBranch.setAuthorName(connect.getLastCommits(projectId,branch.getName()).get(0).getAuthorName());
+            releaseBranch.setAuthorEmail(connect.getLastCommits(projectId,branch.getName()).get(0).getAuthorEmail());
+            releaseBranches.add(releaseBranch);
+        }
+        releaseBranchService.getBaseMapper().delete();
+        releaseBranchService.saveOrUpdateBatch(releaseBranches);
+    }
+
+    public void getCommits(Integer projectId) throws Exception{
+        GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        List<GitlabCommit> lastCommits = connect.getLastCommits(projectId);
+        List<ReleaseCommit> commits = new ArrayList<>();
+        for (GitlabCommit each : lastCommits) {
+            ReleaseCommit commit = new ReleaseCommit();
+            commit.setId(each.getId());
+            commit.setMessage(each.getMessage());
+            commit.setAuthoredDate(each.getAuthoredDate());
+            commit.setCommittedDate(each.getCommittedDate());
+            commit.setAuthorName(each.getAuthorName());
+            commit.setAuthorEmail(each.getAuthorEmail());
+            commits.add(commit);
+        }
+        releaseCommitService.getBaseMapper().delete();
+        releaseCommitService.saveOrUpdateBatch(commits);
+    }
+
+    public void getMerged(Integer projectId) throws Exception{
+        GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        List<GitlabMergeRequest> mergedMergeRequests = connect.getMergedMergeRequests(projectId);
+        List<GitlabMergeRequest> collect = mergedMergeRequests.stream()
+                .collect(Collectors.groupingBy(GitlabMergeRequest::getTargetBranch))
+                .values().stream().map(e -> e.get(0)).collect(Collectors.toList());
+        List<ReleaseMerged> mergeds = new ArrayList<>();
+        for (GitlabMergeRequest each : collect) {
+            ReleaseMerged entity = new ReleaseMerged();
+            entity.setId(each.getId());
+            entity.setProjectId(each.getProjectId());
+            entity.setDescription(each.getDescription());
+            entity.setState(each.getState());
+            entity.setSourceBranch(each.getSourceBranch());
+            entity.setTargetBranch(each.getTargetBranch());
+            entity.setMergeBy(each.getMergedBy().getName());
+            entity.setMergedAt(each.getMergedAt());
+            mergeds.add(entity);
+        }
+        releaseMergedService.getBaseMapper().delete();
+        releaseMergedService.saveOrUpdateBatch(mergeds);
     }
 }

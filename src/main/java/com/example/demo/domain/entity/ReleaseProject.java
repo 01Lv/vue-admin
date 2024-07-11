@@ -1,6 +1,5 @@
 package com.example.demo.domain.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -22,14 +21,38 @@ import java.util.Date;
 public class ReleaseProject {
 
     @ApiModelProperty("")
-    @TableId(value = "project_id",type = IdType.AUTO)
-    private Integer projectId;
+    @TableId(value = "id")
+    private Integer id;
 
     @ApiModelProperty(value = "")
-    @TableField(value = "project_name")
-    private String projectName;
+    @TableField(value = "name")
+    private String name;
 
     @ApiModelProperty(value = "")
-    @TableField(value = "prd_branch")
-    private String prdBranch;
+    @TableField(value = "default_branch")
+    private String defaultBranch;
+
+    @TableField(value = "web_url")
+    private String webUrl;
+
+    @TableField(value = "http_url")
+    private String httpUrl;
+
+    @TableField(value = "created_at")
+    private Date createdAt;
+
+    @TableField(value = "last_activity_at")
+    private Date lastActivityAt;
+
+    @TableField(value = "namespace_id")
+    private Integer namespaceId;
+
+    @TableField(value = "namespace_name")
+    private String namespaceName;
+
+    @TableField(value = "namespace_path")
+    private String namespacePath;
+
+    @TableField(value = "namespace_parent_id")
+    private String namespaceParentId;
 }
