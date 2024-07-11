@@ -1,8 +1,10 @@
 package com.example.demo.domain.entity;
 
+import cn.hutool.core.date.DatePattern;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
@@ -42,6 +44,7 @@ public class ReleaseProject {
     private Date createdAt;
 
     @TableField(value = "last_activity_at")
+    @JsonFormat(pattern = DatePattern.NORM_DATETIME_PATTERN, timezone = "GMT+8")
     private Date lastActivityAt;
 
     @TableField(value = "namespace_id")

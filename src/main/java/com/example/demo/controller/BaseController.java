@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import cn.hutool.core.date.DateTime;
+import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -83,8 +85,8 @@ public class BaseController {
     private ReleaseMergedService releaseMergedService;
 
     @PostMapping("/login")
-    public CommonResult<LoginUser> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req){
-        if("admin".equals(req.getUsername()) && "admin".equals(req.getPassword())){
+    public CommonResult<LoginUser> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req) {
+        if ("admin".equals(req.getUsername()) && "admin".equals(req.getPassword())) {
             String ip = NetworkUtils.getIpAddress(httpServletRequest);
             String address = ip2regionSearcher.getAddress(ip);
             LoginUser loginUser = new LoginUser();
@@ -95,7 +97,7 @@ public class BaseController {
             loginUser.setCreateDate(new Date());
             loginUserService.saveOrUpdate(loginUser);
             return CommonResult.success(loginUser);
-        }else {
+        } else {
             return CommonResult.failed();
         }
     }
@@ -194,7 +196,7 @@ public class BaseController {
         List<Integer> roleIdList = list.stream().map(Role::getId).collect(Collectors.toList());
         Map<Integer, List<Integer>> map = roleRightRelateService.list(new LambdaQueryWrapper<RoleRightRelate>()
                         .in(RoleRightRelate::getRoleId, roleIdList)).stream()
-                .collect(Collectors.groupingBy(RoleRightRelate::getRoleId,Collectors.mapping(RoleRightRelate::getRightId,Collectors.toList())));
+                .collect(Collectors.groupingBy(RoleRightRelate::getRoleId, Collectors.mapping(RoleRightRelate::getRightId, Collectors.toList())));
         List<RoleResp> result = new ArrayList<>();
         for (Role role : list) {
             RoleResp resp = new RoleResp();
@@ -280,7 +282,7 @@ public class BaseController {
 
     @PostMapping("/updateRight/{roleId}")
     public CommonResult<Boolean> updateRight(@PathVariable("roleId") Integer roleId,
-                                            @RequestBody List<Integer> list) {
+                                             @RequestBody List<Integer> list) {
         roleRightRelateService.remove(new LambdaQueryWrapper<RoleRightRelate>()
                 .eq(RoleRightRelate::getRoleId, roleId));
         List<RoleRightRelate> collect = list.stream().map(e -> {
@@ -295,7 +297,7 @@ public class BaseController {
 
     @PostMapping("/updateRole/{userId}")
     public CommonResult<Boolean> updateRole(@PathVariable("userId") Integer userId,
-                                             @RequestBody List<Integer> list) {
+                                            @RequestBody List<Integer> list) {
         userRoleRelateService.remove(new LambdaQueryWrapper<UserRoleRelate>()
                 .eq(UserRoleRelate::getUserId, userId));
         List<UserRoleRelate> collect = list.stream().map(e -> {
@@ -317,7 +319,7 @@ public class BaseController {
     }
 
     @PostMapping("/batchOffline")
-    public CommonResult<Boolean> batchOffline(@RequestBody List<Integer> list){
+    public CommonResult<Boolean> batchOffline(@RequestBody List<Integer> list) {
         loginUserService.update(new LambdaUpdateWrapper<LoginUser>()
                 .set(LoginUser::getActived, 0)
                 .in(LoginUser::getId, list));
@@ -325,7 +327,7 @@ public class BaseController {
     }
 
     @PostMapping("/addRole")
-    public CommonResult<Boolean> addRole(@RequestBody RoleDto req){
+    public CommonResult<Boolean> addRole(@RequestBody RoleDto req) {
 
         Role role = new Role();
         role.setRoleName(req.getRoleName());
@@ -355,24 +357,25 @@ public class BaseController {
     }
 
     @GetMapping("/getGitlabApi")
-    public void getGitlabApi() throws Exception{
+    public void getGitlabApi() throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         log.info("branches: {}");
     }
 
     @GetMapping("/getBranches")
-    public CommonResult<List<ReleaseBranch>> getBranches() throws Exception{
+    public CommonResult<List<ReleaseBranch>> getBranches() throws Exception {
         List<ReleaseBranch> list = releaseBranchService.list();
         return CommonResult.success(list);
     }
 
     @GetMapping("/updateProject")
-    public void updateProject() throws Exception{
+    public void updateProject() throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabProject> projects = connect.getProjects();
+        DateTime dateTime = DateUtil.offsetMonth(new Date(), -2);
         projects = projects.stream()
-                .filter(e->Objects.nonNull(e.getNamespace()) && e.getNamespace().getPath().equals("sms-server"))
-                .filter(e->Objects.nonNull(e.getNamespace()) && e.getNamespace().getPath().equals("sparepart"))
+                .filter(e -> Objects.nonNull(e.getNamespace()) && (e.getNamespace().getPath().equals("sms-server") ||
+                        e.getNamespace().getPath().equals("sparepart")) && e.getLastActivityAt().compareTo(dateTime) > 0)
                 .collect(Collectors.toList());
         List<ReleaseProject> releaseProjects = new ArrayList<>();
         for (GitlabProject project : projects) {
@@ -395,7 +398,14 @@ public class BaseController {
         releaseProjectService.saveOrUpdateBatch(releaseProjects);
     }
 
-    public void getBranches(Integer projectId) throws Exception{
+    @GetMapping("/projects/{id}")
+    public CommonResult<List<ReleaseProject>> getProjects(@PathVariable("id") Integer id){
+        List<ReleaseProject> list = releaseProjectService.list(new LambdaQueryWrapper<ReleaseProject>()
+                .eq(ReleaseProject::getNamespaceId, id));
+        return CommonResult.success(list);
+    }
+
+    public void getBranches(Integer projectId) throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabBranch> branches = connect.getBranches(projectId);
         List<ReleaseBranch> releaseBranches = new ArrayList<>();
@@ -406,15 +416,15 @@ public class BaseController {
             releaseBranch.setName(branch.getName());
             releaseBranch.setMessage(branch.getCommit().getMessage());
             releaseBranch.setCommittedDate(branch.getCommit().getCommittedDate());
-            releaseBranch.setAuthorName(connect.getLastCommits(projectId,branch.getName()).get(0).getAuthorName());
-            releaseBranch.setAuthorEmail(connect.getLastCommits(projectId,branch.getName()).get(0).getAuthorEmail());
+            releaseBranch.setAuthorName(connect.getLastCommits(projectId, branch.getName()).get(0).getAuthorName());
+            releaseBranch.setAuthorEmail(connect.getLastCommits(projectId, branch.getName()).get(0).getAuthorEmail());
             releaseBranches.add(releaseBranch);
         }
         releaseBranchService.getBaseMapper().delete();
         releaseBranchService.saveOrUpdateBatch(releaseBranches);
     }
 
-    public void getCommits(Integer projectId) throws Exception{
+    public void getCommits(Integer projectId) throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabCommit> lastCommits = connect.getLastCommits(projectId);
         List<ReleaseCommit> commits = new ArrayList<>();
@@ -432,7 +442,7 @@ public class BaseController {
         releaseCommitService.saveOrUpdateBatch(commits);
     }
 
-    public void getMerged(Integer projectId) throws Exception{
+    public void getMerged(Integer projectId) throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabMergeRequest> mergedMergeRequests = connect.getMergedMergeRequests(projectId);
         List<GitlabMergeRequest> collect = mergedMergeRequests.stream()

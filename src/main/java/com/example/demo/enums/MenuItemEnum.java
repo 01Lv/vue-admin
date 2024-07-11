@@ -18,7 +18,7 @@ public enum MenuItemEnum {
     COMMODITY_1(41,"商品列表","/commodity41",4),
     COMMODITY_2(42,"分类参数","/commodity42",4),
     COMMODITY_3(43,"商品分类","/category",4),
-    CODE_1(51,"代码发布","/publishCode",5),;
+    PROJECT_1(51,"项目列表","/project",5),;
 
     private final Integer id;
     private final String name;
