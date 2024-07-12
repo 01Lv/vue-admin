@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -366,25 +367,32 @@ public class BaseController {
                         .eq(ReleaseBranch::getProjectId, projectId)).stream()
                 .collect(Collectors.toMap(ReleaseBranch::getName, Function.identity()));
         Set<String> envIdList = list.stream().map(ReleaseEnv::getEnvId).collect(Collectors.toSet());
-        Map<String, List<String>> jobMap = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
-                        .eq(ReleaseJob::getProjectId, projectId)
-                        .in(ReleaseJob::getEnvId, envIdList)).stream()
-                .collect(Collectors.groupingBy(ReleaseJob::getEnvId, Collectors.mapping(ReleaseJob::getSourceBranch, Collectors.toList())));
+        Map<String, List<String>> jobMap = null;
+        if (!CollectionUtils.isEmpty(envIdList)) {
+            jobMap = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
+                            .eq(ReleaseJob::getProjectId, projectId)
+                            .in(ReleaseJob::getEnvId, envIdList)).stream()
+                    .collect(Collectors.groupingBy(ReleaseJob::getEnvId, Collectors.mapping(ReleaseJob::getSourceBranch, Collectors.toList())));
+        }
 
         for (ReleaseEnv env : list) {
             GetPublishContentResp.EnvContent envContent = new GetPublishContentResp.EnvContent();
             BeanUtils.copyProperties(env, envContent);
 
-            List<String> sourceBranch = jobMap.get(env.getEnvId());
-            List<ReleaseBranch> branchList = new ArrayList<>();
-            for (String branch : sourceBranch) {
-                ReleaseBranch releaseBranch = branchMap.get(branch);
-                if (Objects.nonNull(releaseBranch)) {
-                    branchList.add(releaseBranch);
+            if (MapUtil.isNotEmpty(jobMap)) {
+                List<String> sourceBranch = jobMap.get(env.getEnvId());
+                if (!CollectionUtils.isEmpty(sourceBranch)) {
+                    List<ReleaseBranch> branchList = new ArrayList<>();
+                    for (String branch : sourceBranch) {
+                        ReleaseBranch releaseBranch = branchMap.get(branch);
+                        if (Objects.nonNull(releaseBranch)) {
+                            branchList.add(releaseBranch);
+                        }
+                    }
+                    envContent.setBranchList(branchList);
+                    envContents.add(envContent);
                 }
             }
-            envContent.setBranchList(branchList);
-            envContents.add(envContent);
         }
         resp.setEnvContents(envContents);
 
@@ -404,7 +412,6 @@ public class BaseController {
                 .eq(ReleaseBranch::getProjectId, projectId));
         if (CollectionUtils.isEmpty(list)) {
             this.getBranchesFromGitLabApi(projectId);
-            this.getCommitsFromGitLabApi(projectId);
         }
         Set<String> jobSet = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
                 .eq(ReleaseJob::getProjectId, projectId)
@@ -525,8 +532,7 @@ public class BaseController {
                 .eq(ReleaseJob::getProjectId, req.getProjectId())
                 .eq(ReleaseJob::getEnvId, req.getEnvId()));
         if (CollectionUtils.isEmpty(list)) {
-            String targetBranch = "test_" + DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN) + "_" + RandomUtil.randomString(7);
-            req.setTargetBranch(targetBranch);
+            req.setTargetBranch(getTargetBranch());
         } else {
             req.setTargetBranch(list.get(0).getTargetBranch());
         }
@@ -538,7 +544,7 @@ public class BaseController {
             one.setProjectId(req.getProjectId());
             one.setOnlineBranch(req.getTargetBranch());
             one.setEnvId(req.getEnvId());
-            one.setReleaseStatus(1);
+            one.setReleaseStatus(-1);
         } else {
             one.setOnlineBranch(req.getTargetBranch());
         }
@@ -549,5 +555,27 @@ public class BaseController {
 
         releaseEnvService.saveOrUpdate(one);
         return CommonResult.success(Boolean.TRUE);
+    }
+
+    @DeleteMapping("/deleteBranch/{id}")
+    public CommonResult<Boolean> delBranch(@PathVariable("id") String id) {
+        //删除分支，需新建一个临时合并分支
+        String sourceBranch = releaseBranchService.getById(id).getName();
+        ReleaseJob one = releaseJobService.getOne(new LambdaQueryWrapper<ReleaseJob>()
+                .eq(ReleaseJob::getSourceBranch, sourceBranch));
+        releaseJobService.removeById(one.getId());
+        String newTargetBranch = getTargetBranch();
+        releaseJobService.update(new LambdaUpdateWrapper<ReleaseJob>()
+                .set(ReleaseJob::getTargetBranch, newTargetBranch)
+                .eq(ReleaseJob::getTargetBranch, one.getTargetBranch()));
+        releaseEnvService.update(new LambdaUpdateWrapper<ReleaseEnv>()
+                .set(ReleaseEnv::getOnlineBranch, newTargetBranch)
+                .eq(ReleaseEnv::getOnlineBranch, one.getTargetBranch()));
+        return CommonResult.success(Boolean.TRUE);
+    }
+
+    private String getTargetBranch() {
+        String targetBranch = "test_" + DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN) + "_" + RandomUtil.randomString(7);
+        return targetBranch;
     }
 }
