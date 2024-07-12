@@ -350,7 +350,7 @@ public class BaseController {
     }
 
     @GetMapping("/release/{projectId}")
-    public CommonResult<GetPublishContentResp> getPublishContent(@PathVariable("projectId") Integer projectId) {
+    public CommonResult<GetPublishContentResp> getPublishContent(@PathVariable("projectId") Integer projectId) throws Exception{
 
         GetPublishContentResp resp = new GetPublishContentResp();
 
@@ -363,8 +363,10 @@ public class BaseController {
         List<GetPublishContentResp.EnvContent> envContents = new ArrayList<>();
         List<ReleaseEnv> list = releaseEnvService.list(new LambdaQueryWrapper<ReleaseEnv>()
                 .eq(ReleaseEnv::getProjectId, projectId));
-        Map<String, ReleaseBranch> branchMap = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
-                        .eq(ReleaseBranch::getProjectId, projectId)).stream()
+
+        List<ReleaseBranch> branches = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
+                .eq(ReleaseBranch::getProjectId, projectId));
+        Map<String, ReleaseBranch> branchMap = branches.stream()
                 .collect(Collectors.toMap(ReleaseBranch::getName, Function.identity()));
         Set<String> envIdList = list.stream().map(ReleaseEnv::getEnvId).collect(Collectors.toSet());
         Map<String, List<String>> jobMap = null;
@@ -408,11 +410,13 @@ public class BaseController {
     @GetMapping("/getBranches/{projectId}/{envId}")
     public CommonResult<List<ReleaseBranch>> getBranches(@PathVariable("projectId")Integer projectId,
                                                          @PathVariable("envId")String envId) throws Exception {
-        List<ReleaseBranch> list = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
+        long count = releaseBranchService.count(new LambdaQueryWrapper<ReleaseBranch>()
                 .eq(ReleaseBranch::getProjectId, projectId));
-        if (CollectionUtils.isEmpty(list)) {
+        if (count == 0L) {
             this.getBranchesFromGitLabApi(projectId);
         }
+        List<ReleaseBranch> list = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
+                .eq(ReleaseBranch::getProjectId, projectId));
         Set<String> jobSet = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
                 .eq(ReleaseJob::getProjectId, projectId)
                 .eq(ReleaseJob::getEnvId, envId)).stream().map(ReleaseJob::getSourceBranch).collect(Collectors.toSet());
@@ -478,8 +482,6 @@ public class BaseController {
             releaseBranch.setAuthorEmail(connect.getLastCommits(projectId, branch.getName()).get(0).getAuthorEmail());
             releaseBranches.add(releaseBranch);
         }
-        releaseBranchService.remove(new LambdaQueryWrapper<ReleaseBranch>()
-                .eq(ReleaseBranch::getProjectId, projectId));
         releaseBranchService.saveOrUpdateBatch(releaseBranches);
     }
 
