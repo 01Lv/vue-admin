@@ -1,7 +1,9 @@
 package com.example.demo.controller;
 
+import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -22,13 +24,10 @@ import com.example.demo.utils.NetworkUtils;
 import lombok.extern.slf4j.Slf4j;
 import net.dreamlu.mica.ip2region.core.Ip2regionSearcher;
 import org.gitlab.api.GitlabAPI;
-import org.gitlab.api.Pagination;
 import org.gitlab.api.models.GitlabBranch;
 import org.gitlab.api.models.GitlabCommit;
 import org.gitlab.api.models.GitlabMergeRequest;
 import org.gitlab.api.models.GitlabProject;
-import org.gitlab.api.query.PaginationQuery;
-import org.gitlab4j.api.GitLabApi;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
@@ -37,6 +36,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @RestController
@@ -83,6 +83,12 @@ public class BaseController {
 
     @Autowired
     private ReleaseMergedService releaseMergedService;
+
+    @Autowired
+    private ReleaseJobService releaseJobService;
+
+    @Autowired
+    private ReleaseEnvService releaseEnvService;
 
     @PostMapping("/login")
     public CommonResult<LoginUser> login(HttpServletRequest httpServletRequest, @RequestBody LoginReq req) {
@@ -342,16 +348,45 @@ public class BaseController {
         return CommonResult.success(Boolean.TRUE);
     }
 
-    @GetMapping("/release/{id}")
-    public CommonResult<GetPublishContentResp> getPublishContent(@PathVariable("id") Integer id) {
+    @GetMapping("/release/{projectId}")
+    public CommonResult<GetPublishContentResp> getPublishContent(@PathVariable("projectId") Integer projectId) {
 
         GetPublishContentResp resp = new GetPublishContentResp();
 
-        ReleaseProject releaseProject = releaseProjectService.getById(id);
+        ReleaseProject releaseProject = releaseProjectService.getById(projectId);
         resp.setProjectId(releaseProject.getId());
         resp.setProjectName(releaseProject.getName());
         resp.setPrdBranch(releaseProject.getDefaultBranch());
         resp.setCodeRepo(releaseProject.getWebUrl());
+
+        List<GetPublishContentResp.EnvContent> envContents = new ArrayList<>();
+        List<ReleaseEnv> list = releaseEnvService.list(new LambdaQueryWrapper<ReleaseEnv>()
+                .eq(ReleaseEnv::getProjectId, projectId));
+        Map<String, ReleaseBranch> branchMap = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
+                        .eq(ReleaseBranch::getProjectId, projectId)).stream()
+                .collect(Collectors.toMap(ReleaseBranch::getName, Function.identity()));
+        Set<String> envIdList = list.stream().map(ReleaseEnv::getEnvId).collect(Collectors.toSet());
+        Map<String, List<String>> jobMap = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
+                        .eq(ReleaseJob::getProjectId, projectId)
+                        .in(ReleaseJob::getEnvId, envIdList)).stream()
+                .collect(Collectors.groupingBy(ReleaseJob::getEnvId, Collectors.mapping(ReleaseJob::getSourceBranch, Collectors.toList())));
+
+        for (ReleaseEnv env : list) {
+            GetPublishContentResp.EnvContent envContent = new GetPublishContentResp.EnvContent();
+            BeanUtils.copyProperties(env, envContent);
+
+            List<String> sourceBranch = jobMap.get(env.getEnvId());
+            List<ReleaseBranch> branchList = new ArrayList<>();
+            for (String branch : sourceBranch) {
+                ReleaseBranch releaseBranch = branchMap.get(branch);
+                if (Objects.nonNull(releaseBranch)) {
+                    branchList.add(releaseBranch);
+                }
+            }
+            envContent.setBranchList(branchList);
+            envContents.add(envContent);
+        }
+        resp.setEnvContents(envContents);
 
         return CommonResult.success(resp);
     }
@@ -362,9 +397,25 @@ public class BaseController {
         log.info("branches: {}");
     }
 
-    @GetMapping("/getBranches")
-    public CommonResult<List<ReleaseBranch>> getBranches() throws Exception {
-        List<ReleaseBranch> list = releaseBranchService.list();
+    @GetMapping("/getBranches/{projectId}/{envId}")
+    public CommonResult<List<ReleaseBranch>> getBranches(@PathVariable("projectId")Integer projectId,
+                                                         @PathVariable("envId")String envId) throws Exception {
+        List<ReleaseBranch> list = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
+                .eq(ReleaseBranch::getProjectId, projectId));
+        if (CollectionUtils.isEmpty(list)) {
+            this.getBranchesFromGitLabApi(projectId);
+            this.getCommitsFromGitLabApi(projectId);
+        }
+        Set<String> jobSet = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
+                .eq(ReleaseJob::getProjectId, projectId)
+                .eq(ReleaseJob::getEnvId, envId)).stream().map(ReleaseJob::getSourceBranch).collect(Collectors.toSet());
+        if (!CollectionUtils.isEmpty(jobSet)) {
+            for (ReleaseBranch releaseBranch : list) {
+                if (jobSet.contains(releaseBranch.getName())) {
+                    releaseBranch.setAddBranched(Boolean.TRUE);
+                }
+            }
+        }
         return CommonResult.success(list);
     }
 
@@ -405,7 +456,7 @@ public class BaseController {
         return CommonResult.success(list);
     }
 
-    public void getBranches(Integer projectId) throws Exception {
+    public void getBranchesFromGitLabApi(Integer projectId) throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabBranch> branches = connect.getBranches(projectId);
         List<ReleaseBranch> releaseBranches = new ArrayList<>();
@@ -420,17 +471,19 @@ public class BaseController {
             releaseBranch.setAuthorEmail(connect.getLastCommits(projectId, branch.getName()).get(0).getAuthorEmail());
             releaseBranches.add(releaseBranch);
         }
-        releaseBranchService.getBaseMapper().delete();
+        releaseBranchService.remove(new LambdaQueryWrapper<ReleaseBranch>()
+                .eq(ReleaseBranch::getProjectId, projectId));
         releaseBranchService.saveOrUpdateBatch(releaseBranches);
     }
 
-    public void getCommits(Integer projectId) throws Exception {
+    public void getCommitsFromGitLabApi(Integer projectId) throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabCommit> lastCommits = connect.getLastCommits(projectId);
         List<ReleaseCommit> commits = new ArrayList<>();
         for (GitlabCommit each : lastCommits) {
             ReleaseCommit commit = new ReleaseCommit();
             commit.setId(each.getId());
+            commit.setProjectId(projectId);
             commit.setMessage(each.getMessage());
             commit.setAuthoredDate(each.getAuthoredDate());
             commit.setCommittedDate(each.getCommittedDate());
@@ -438,7 +491,8 @@ public class BaseController {
             commit.setAuthorEmail(each.getAuthorEmail());
             commits.add(commit);
         }
-        releaseCommitService.getBaseMapper().delete();
+        releaseCommitService.remove(new LambdaQueryWrapper<ReleaseCommit>()
+                .eq(ReleaseCommit::getProjectId, projectId));
         releaseCommitService.saveOrUpdateBatch(commits);
     }
 
@@ -463,5 +517,37 @@ public class BaseController {
         }
         releaseMergedService.getBaseMapper().delete();
         releaseMergedService.saveOrUpdateBatch(mergeds);
+    }
+
+    @PostMapping("/addBranch")
+    public CommonResult<Boolean> addBranch(@RequestBody AddBranchReq req) {
+        List<ReleaseJob> list = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
+                .eq(ReleaseJob::getProjectId, req.getProjectId())
+                .eq(ReleaseJob::getEnvId, req.getEnvId()));
+        if (CollectionUtils.isEmpty(list)) {
+            String targetBranch = "test_" + DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN) + "_" + RandomUtil.randomString(7);
+            req.setTargetBranch(targetBranch);
+        } else {
+            req.setTargetBranch(list.get(0).getTargetBranch());
+        }
+        ReleaseEnv one = releaseEnvService.getOne(new LambdaQueryWrapper<ReleaseEnv>()
+                .eq(ReleaseEnv::getProjectId, req.getProjectId())
+                .eq(ReleaseEnv::getEnvId, req.getEnvId()));
+        if (Objects.isNull(one)) {
+            one = new ReleaseEnv();
+            one.setProjectId(req.getProjectId());
+            one.setOnlineBranch(req.getTargetBranch());
+            one.setEnvId(req.getEnvId());
+            one.setReleaseStatus(1);
+        } else {
+            one.setOnlineBranch(req.getTargetBranch());
+        }
+
+        ReleaseJob job = new ReleaseJob();
+        BeanUtils.copyProperties(req, job);
+        releaseJobService.saveOrUpdate(job);
+
+        releaseEnvService.saveOrUpdate(one);
+        return CommonResult.success(Boolean.TRUE);
     }
 }

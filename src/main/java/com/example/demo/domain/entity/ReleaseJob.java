@@ -1,5 +1,6 @@
 package com.example.demo.domain.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -17,30 +18,24 @@ import java.util.Date;
 
 @Data
 @ApiModel(value="")
-@TableName("release_commit")
-public class ReleaseCommit {
+@TableName("release_job")
+public class ReleaseJob {
 
     @ApiModelProperty("")
-    @TableId(value = "id")
+    @TableId(value = "id",type = IdType.ASSIGN_ID)
     private String id;
 
     @ApiModelProperty(value = "")
-    @TableField(value = "message")
-    private String message;
+    @TableField(value = "env_id")
+    private String envId;
 
+    @ApiModelProperty(value = "")
     @TableField(value = "project_id")
     private Integer projectId;
 
-    @TableField(value = "committed_date")
-    private Date committedDate;
+    @TableField(value = "source_branch")
+    private String sourceBranch;
 
-    @TableField(value = "authored_date")
-    private Date authoredDate;
-
-    @TableField(value = "author_name")
-    private String authorName;
-
-    @TableField(value = "author_email")
-    private String authorEmail;
-
+    @TableField(value = "target_branch")
+    private String targetBranch;
 }

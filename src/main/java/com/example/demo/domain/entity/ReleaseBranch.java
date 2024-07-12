@@ -1,8 +1,10 @@
 package com.example.demo.domain.entity;
 
+import cn.hutool.core.date.DatePattern;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
@@ -36,6 +38,7 @@ public class ReleaseBranch {
     private String message;
 
     @TableField(value = "committed_date")
+    @JsonFormat(pattern = DatePattern.NORM_DATETIME_PATTERN,timezone = "GMT+8")
     private Date committedDate;
 
     @TableField(value = "author_name")
@@ -43,4 +46,10 @@ public class ReleaseBranch {
 
     @TableField(value = "author_email")
     private String authorEmail;
+
+    @TableField(exist = false)
+    private Boolean addBranched = false;
+
+    @TableField(exist = false)
+    private Integer releaseStatus = 1;
 }
