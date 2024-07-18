@@ -47,6 +47,9 @@ public class ReleaseBranch {
     @TableField(value = "author_email")
     private String authorEmail;
 
+    @TableField(value = "commit_content_url")
+    private String commitContentUrl;
+
     @TableField(exist = false)
     private Boolean addBranched = false;
 

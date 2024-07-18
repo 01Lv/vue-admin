@@ -25,11 +25,12 @@ import com.example.demo.utils.NetworkUtils;
 import lombok.extern.slf4j.Slf4j;
 import net.dreamlu.mica.ip2region.core.Ip2regionSearcher;
 import org.gitlab.api.GitlabAPI;
-import org.gitlab.api.models.GitlabBranch;
 import org.gitlab.api.models.GitlabCommit;
 import org.gitlab.api.models.GitlabMergeRequest;
 import org.gitlab.api.models.GitlabProject;
 import org.gitlab4j.api.GitLabApi;
+import org.gitlab4j.api.models.Branch;
+import org.gitlab4j.api.models.Project;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
@@ -434,7 +435,6 @@ public class BaseController {
         return CommonResult.success(list);
     }
 
-    @GetMapping("/updateProject")
     public void updateProject() throws Exception {
         GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
         List<GitlabProject> projects = connect.getProjects();
@@ -464,29 +464,64 @@ public class BaseController {
         releaseProjectService.saveOrUpdateBatch(releaseProjects);
     }
 
+    @GetMapping("/updateProject")
+    public void getProjectsFromGitLabApi() throws Exception {
+        GitLabApi gitLabApi = new GitLabApi("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        List<Project> projects = gitLabApi.getProjectApi().getProjects();
+        DateTime dateTime = DateUtil.offsetMonth(new Date(), -2);
+        projects = projects.stream()
+                .filter(e -> Objects.nonNull(e.getNamespace()) && (e.getNamespace().getPath().equals("sms-server") ||
+                        e.getNamespace().getPath().equals("sparepart")) && e.getLastActivityAt().compareTo(dateTime) > 0)
+                .collect(Collectors.toList());
+        List<ReleaseProject> releaseProjects = new ArrayList<>();
+        for (Project project : projects) {
+            ReleaseProject releaseProject = new ReleaseProject();
+            releaseProject.setId(project.getId().intValue());
+            releaseProject.setName(project.getName());
+            releaseProject.setDefaultBranch(project.getDefaultBranch());
+            releaseProject.setWebUrl(project.getWebUrl());
+            releaseProject.setCreatedAt(project.getCreatedAt());
+            releaseProject.setLastActivityAt(project.getLastActivityAt());
+            releaseProject.setNamespaceId(project.getNamespace().getId().intValue());
+            releaseProject.setNamespaceName(project.getNamespace().getName());
+            releaseProject.setNamespacePath(project.getNamespace().getPath());
+            releaseProject.setNamespaceParentId(project.getNamespace().getParentId().toString());
+
+            releaseProjects.add(releaseProject);
+        }
+        releaseProjectService.getBaseMapper().delete();
+        releaseProjectService.saveOrUpdateBatch(releaseProjects);
+    }
+
     @GetMapping("/projects/{id}")
-    public CommonResult<List<ReleaseProject>> getProjects(@PathVariable("id") Integer id){
+    public CommonResult<List<ReleaseProject>> getProjects(@PathVariable("id") Integer id) throws Exception {
+        long count = releaseProjectService.count(new LambdaQueryWrapper<ReleaseProject>()
+                .eq(ReleaseProject::getNamespaceId, id));
+        if (count == 0) {
+            this.updateProject();
+        }
         List<ReleaseProject> list = releaseProjectService.list(new LambdaQueryWrapper<ReleaseProject>()
                 .eq(ReleaseProject::getNamespaceId, id));
         return CommonResult.success(list);
     }
 
     public void getBranchesFromGitLabApi(Integer projectId) throws Exception {
-        GitlabAPI connect = GitlabAPI.connect("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
-        List<GitlabBranch> branches = connect.getBranches(projectId);
+        GitLabApi gitLabApi = new GitLabApi("https://ds-git.gree.com:8888/", "P_vsJmGKA8dmRA2-UWZ_");
+        List<Branch> branches = gitLabApi.getRepositoryApi().getBranches(projectId);
         DateTime dateTime = DateUtil.offsetMonth(new Date(), -2);
         branches = branches.stream().filter(e -> e.getCommit().getCommittedDate().compareTo(dateTime) > 0).collect(Collectors.toList());
         if (!CollectionUtils.isEmpty(branches)) {
             List<ReleaseBranch> releaseBranches = new ArrayList<>();
-            for (GitlabBranch branch : branches) {
+            for (Branch branch : branches) {
                 ReleaseBranch releaseBranch = new ReleaseBranch();
                 releaseBranch.setId(branch.getCommit().getId());
                 releaseBranch.setProjectId(projectId);
                 releaseBranch.setName(branch.getName());
                 releaseBranch.setMessage(branch.getCommit().getMessage());
                 releaseBranch.setCommittedDate(branch.getCommit().getCommittedDate());
-                releaseBranch.setAuthorName(connect.getLastCommits(projectId, branch.getName()).get(0).getAuthorName());
-                releaseBranch.setAuthorEmail(connect.getLastCommits(projectId, branch.getName()).get(0).getAuthorEmail());
+                releaseBranch.setAuthorName(branch.getCommit().getAuthorName());
+                releaseBranch.setAuthorEmail(branch.getCommit().getAuthorEmail());
+                releaseBranch.setCommitContentUrl(branch.getCommit().getWebUrl());
                 releaseBranches.add(releaseBranch);
             }
             releaseBranchService.saveOrUpdateBatch(releaseBranches);
