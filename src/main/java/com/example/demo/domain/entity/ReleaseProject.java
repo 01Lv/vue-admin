@@ -58,4 +58,7 @@ public class ReleaseProject {
 
     @TableField(value = "namespace_parent_id")
     private String namespaceParentId;
+
+    @TableField(exist = false)
+    private Integer projectStatus;
 }
