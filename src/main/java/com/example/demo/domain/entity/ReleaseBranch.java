@@ -50,6 +50,9 @@ public class ReleaseBranch {
     @TableField(value = "commit_content_url")
     private String commitContentUrl;
 
+    @TableField(value = "target_branch")
+    private Integer targetBranch;
+
     @TableField(exist = false)
     private Boolean addBranched = false;
 

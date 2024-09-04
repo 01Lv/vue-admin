@@ -416,12 +416,14 @@ public class BaseController {
     public CommonResult<List<ReleaseBranch>> getBranches(@PathVariable("projectId")Integer projectId,
                                                          @PathVariable("envId")String envId) throws Exception {
         long count = releaseBranchService.count(new LambdaQueryWrapper<ReleaseBranch>()
-                .eq(ReleaseBranch::getProjectId, projectId));
+                .eq(ReleaseBranch::getProjectId, projectId)
+                .eq(ReleaseBranch::getTargetBranch, 0));
         if (count == 0L) {
             this.getBranchesFromGitLabApi(projectId);
         }
         List<ReleaseBranch> list = releaseBranchService.list(new LambdaQueryWrapper<ReleaseBranch>()
-                .eq(ReleaseBranch::getProjectId, projectId));
+                .eq(ReleaseBranch::getProjectId, projectId)
+                .eq(ReleaseBranch::getTargetBranch, 0));
         Set<String> jobSet = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
                 .eq(ReleaseJob::getProjectId, projectId)
                 .eq(ReleaseJob::getEnvId, envId)).stream().map(ReleaseJob::getSourceBranch).collect(Collectors.toSet());
@@ -576,8 +578,15 @@ public class BaseController {
         List<ReleaseJob> list = releaseJobService.list(new LambdaQueryWrapper<ReleaseJob>()
                 .eq(ReleaseJob::getProjectId, req.getProjectId())
                 .eq(ReleaseJob::getEnvId, req.getEnvId()));
+        List<ReleaseBranch> branchList = new ArrayList<>();
         if (CollectionUtils.isEmpty(list)) {
-            req.setTargetBranch(getTargetBranch());
+            String targetBranch = getTargetBranch();
+            ReleaseBranch targetBranch1 = new ReleaseBranch();
+            targetBranch1.setProjectId(req.getProjectId());
+            targetBranch1.setName(targetBranch);
+            targetBranch1.setTargetBranch(1);
+            branchList.add(targetBranch1);
+            req.setTargetBranch(targetBranch);
         } else {
             req.setTargetBranch(list.get(0).getTargetBranch());
         }
@@ -599,6 +608,10 @@ public class BaseController {
         releaseJobService.saveOrUpdate(job);
 
         releaseEnvService.saveOrUpdate(one);
+
+        if (!CollectionUtils.isEmpty(branchList)) {
+            releaseBranchService.saveOrUpdateBatch(branchList);
+        }
         return CommonResult.success(Boolean.TRUE);
     }
 
@@ -621,6 +634,7 @@ public class BaseController {
 
     private String getTargetBranch() {
         String targetBranch = "test_" + DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN) + "_" + RandomUtil.randomString(7);
+
         return targetBranch;
     }
 }
